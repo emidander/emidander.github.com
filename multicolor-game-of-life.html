@@ -1,0 +1,192 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <title>Multicolor Game of Life</title>
+  
+  <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+  
+  <script type='text/javascript'>//<![CDATA[ 
+
+  function createEmptyArray(rows, columns, initialValue) {
+    var array = new Array();
+    for (var row = 0; row < rows; row++) {
+      array[row] = new Array();
+      for (var col = 0; col < columns; col++) {
+        array[row][col] = initialValue;
+      }
+    }
+    return array;
+  }
+  
+  function createRandomGameOfLife(rows, columns, liveCellFactor) {
+    var golArray = createEmptyArray(rows, columns, false);
+    for (var row = 0; row < rows; row++) {
+      for (var col = 0; col < columns; col++) {
+        if (Math.random() < liveCellFactor) {
+          golArray[row][col] = true;
+        }
+      }
+    }
+    return golArray;
+  }
+
+  function stepGameOfLife(golArray, golArraySwap, rows, columns) {
+//    var golArraySwap = createEmptyArray(rows, columns, false);
+    
+    for (var row = 0; row < rows; row++) {
+      for (var col = 0; col < columns; col++) {
+        var neighbourCount = 0;
+        for (var nRow = (row == 0 ? 0 : row - 1); nRow <= (row == rows - 1 ? rows - 1 : row + 1); nRow++) {
+          for (var nCol = (col == 0 ? 0 : col - 1); nCol <= (col == columns - 1 ? columns - 1 : col + 1); nCol++) {
+            if (!(nRow == row && nCol == col) && golArray[nRow][nCol]) {
+              neighbourCount++;
+            }
+          }
+        }
+//        console.log(row + 'x' + col + ' = ' + neighbourCount);
+        if (golArray[row][col]) {
+          if (neighbourCount < 2) {
+            golArraySwap[row][col] = false;
+          } else if (neighbourCount > 3) {
+            golArraySwap[row][col] = false;
+          } else {
+            golArraySwap[row][col] = true;
+          }
+        } else {
+          if (neighbourCount == 3) {
+            golArraySwap[row][col] = true;
+          } else {
+            golArraySwap[row][col] = false;
+          }
+        }
+      }
+    }
+    return golArraySwap;
+  }
+
+  function startGame(gridRows, gridColumns) {
+
+    // Set up Game of Life
+    var golArrayR = createRandomGameOfLife(gridRows, gridColumns, 0.4);
+    var golArrayG = createRandomGameOfLife(gridRows, gridColumns, 0.4);
+    var golArrayB = createRandomGameOfLife(gridRows, gridColumns, 0.4);
+    var golArrayRSwap = createEmptyArray(gridRows, gridColumns, false);
+    var golArrayGSwap = createEmptyArray(gridRows, gridColumns, false);
+    var golArrayBSwap = createEmptyArray(gridRows, gridColumns, false);
+    var colorStateR = createEmptyArray(gridRows, gridColumns, 0);
+    var colorStateG = createEmptyArray(gridRows, gridColumns, 0);
+    var colorStateB = createEmptyArray(gridRows, gridColumns, 0);
+
+/*    golArrayR = createEmptyArray(gridRows, gridColumns, false);
+    golArrayR[1][1] = true;
+    golArrayR[1][2] = true;
+    golArrayR[2][1] = true;
+    golArrayR[2][2] = true;*/
+                            
+    // Set up drawing 
+    var canvas = document.getElementById('canvas');
+    ctx = canvas.getContext('2d');
+    var WIDTH = canvas.width;
+    var HEIGHT = canvas.height;
+    
+    squareSizeY = Math.floor(HEIGHT / gridRows);
+    squareSizeX = Math.floor(WIDTH / gridColumns);
+    yOffset = HEIGHT % gridRows;
+    xOffset = WIDTH % gridColumns;
+
+    var STEP_GOL_EVERY_N_FRAME = 5;
+    var frameCounter = 0;
+
+    function loop() {
+      frameCounter++;
+      if (frameCounter % STEP_GOL_EVERY_N_FRAME == 0) {
+        stepGameOfLife(golArrayR, golArrayRSwap, gridRows, gridColumns);
+        stepGameOfLife(golArrayG, golArrayGSwap, gridRows, gridColumns);
+        stepGameOfLife(golArrayB, golArrayBSwap, gridRows, gridColumns);
+        var tmpR = golArrayR; golArrayR = golArrayRSwap; golArrayRSwap = tmpR;
+        var tmpG = golArrayG; golArrayG = golArrayGSwap; golArrayGSwap = tmpG;
+        var tmpB = golArrayB; golArrayB = golArrayBSwap; golArrayBSwap = tmpB;
+      }
+      
+      var y = yOffset;
+      for (var row = 0; row < gridRows; row++) {
+        var x = xOffset;
+        for (var col = 0; col < gridColumns; col++) {
+          // Set color state
+          if (golArrayR[row][col]) {
+            colorStateR[row][col] = 255;
+          } else {
+            if (colorStateR[row][col] > 0) {colorStateR[row][col]--;}
+          }
+          if (golArrayG[row][col]) {
+            colorStateG[row][col] = 255;
+          } else {
+            if (colorStateG[row][col] > 0) {colorStateG[row][col]--;}
+          }
+          if (golArrayB[row][col]) {
+            colorStateB[row][col] = 255;
+          } else {
+            if (colorStateB[row][col] > 0) {colorStateB[row][col]--;}
+          }
+
+          ctx.fillStyle = 'rgb(' + colorStateR[row][col] + ', ' + colorStateG[row][col] + ', ' + colorStateB[row][col] + ')';
+//          ctx.fillStyle = 'rgb(' + colorStateR[row][col] + ', 0, 0)';
+          ctx.fillRect(x, y, squareSizeX, squareSizeY);
+          
+          x += squareSizeX;
+        }
+        y += squareSizeY;
+      }
+      requestAnimationFrame(loop);
+    }
+
+    requestAnimationFrame(loop);
+  }
+  
+  $(document).ready(function() {
+    window.requestAnimationFrame = (function(){
+        return  window.requestAnimationFrame       || 
+                window.webkitRequestAnimationFrame || 
+                window.mozRequestAnimationFrame    || 
+                window.oRequestAnimationFrame      || 
+                window.msRequestAnimationFrame     || 
+                function( callback ) {
+                  window.setTimeout(callback, 1000 / 60);
+                };
+      })();
+
+    startGame(20, 20);
+
+  });//]]>
+
+  </script>
+
+  <style type="text/css">
+    #canvas-container {
+      padding: 0;
+      margin: 0;
+    }
+    .container {
+      width: 960px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+  </style>
+  
+  </head>
+
+  <body>
+    <div class="container">
+      
+      <h1>Multicolor Game of Life</h1>
+      <p>Reload page to start over.</p>
+      
+      <div id="canvas-container">
+        <canvas id="canvas" width="400" height="400"></canvas>
+      </div>
+    </div>
+  </body>
+
+</html>
