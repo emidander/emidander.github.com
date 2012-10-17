@@ -33,8 +33,10 @@
   }
 
   function stepGameOfLife(golArray, golArraySwap, rows, columns) {
-//    var golArraySwap = createEmptyArray(rows, columns, false);
-    
+
+    // NOTE: There are better algorithms for the game of life, but I didn't have time. I just wanted 
+    // to see what this would look like :)
+
     for (var row = 0; row < rows; row++) {
       for (var col = 0; col < columns; col++) {
         var neighbourCount = 0;
@@ -63,7 +65,6 @@
         }
       }
     }
-    return golArraySwap;
   }
 
   function startGame(gridRows, gridColumns) {
@@ -83,7 +84,7 @@
     golArrayR[1][1] = true;
     golArrayR[1][2] = true;
     golArrayR[2][1] = true;
-    golArrayR[2][2] = true;*/
+    golArrayR[2][2] = true; */
                             
     // Set up drawing 
     var canvas = document.getElementById('canvas');
@@ -96,19 +97,24 @@
     yOffset = HEIGHT % gridRows;
     xOffset = WIDTH % gridColumns;
 
-    var STEP_GOL_EVERY_N_FRAME = 5;
     var frameCounter = 0;
 
     function loop() {
-      frameCounter++;
-      if (frameCounter % STEP_GOL_EVERY_N_FRAME == 0) {
-        stepGameOfLife(golArrayR, golArrayRSwap, gridRows, gridColumns);
-        stepGameOfLife(golArrayG, golArrayGSwap, gridRows, gridColumns);
-        stepGameOfLife(golArrayB, golArrayBSwap, gridRows, gridColumns);
-        var tmpR = golArrayR; golArrayR = golArrayRSwap; golArrayRSwap = tmpR;
-        var tmpG = golArrayG; golArrayG = golArrayGSwap; golArrayGSwap = tmpG;
-        var tmpB = golArrayB; golArrayB = golArrayBSwap; golArrayBSwap = tmpB;
+      switch (frameCounter % 3) {
+        case 0:
+          stepGameOfLife(golArrayR, golArrayRSwap, gridRows, gridColumns);
+          break;
+        case 1:
+          stepGameOfLife(golArrayG, golArrayGSwap, gridRows, gridColumns);
+          break;
+        case 2:
+          stepGameOfLife(golArrayB, golArrayBSwap, gridRows, gridColumns);
+          var tmpR = golArrayR; golArrayR = golArrayRSwap; golArrayRSwap = tmpR;
+          var tmpG = golArrayG; golArrayG = golArrayGSwap; golArrayGSwap = tmpG;
+          var tmpB = golArrayB; golArrayB = golArrayBSwap; golArrayBSwap = tmpB;
+          break;
       }
+      frameCounter++;
       
       var y = yOffset;
       for (var row = 0; row < gridRows; row++) {
@@ -157,7 +163,7 @@
                 };
       })();
 
-    startGame(20, 20);
+    startGame(50, 50);
 
   });//]]>
 
@@ -167,6 +173,9 @@
     #canvas-container {
       padding: 0;
       margin: 0;
+    }
+    canvas {
+      border: 1px solid black;
     }
     .container {
       width: 960px;
