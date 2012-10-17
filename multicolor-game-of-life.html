@@ -94,8 +94,8 @@
     
     squareSizeY = Math.floor(HEIGHT / gridRows);
     squareSizeX = Math.floor(WIDTH / gridColumns);
-    yOffset = HEIGHT % gridRows;
-    xOffset = WIDTH % gridColumns;
+    yOffset = (HEIGHT % gridRows) / 2;
+    xOffset = (WIDTH % gridColumns) / 2;
 
     var frameCounter = 0;
 
