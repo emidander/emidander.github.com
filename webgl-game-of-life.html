@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>WebGL Game of Life</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <script type="text/javascript" src="jquery-1.9.1.min.js"></script>
+    <script type="text/javascript" src="gol.js"></script>
+    <script type="text/javascript" src="gl-matrix-min.js"></script>
+    <script type="text/javascript" src="webgl-utils.js"></script>
+
+    <script id="shader-fs" type="x-shader/x-fragment">
+        precision mediump float;
+
+        varying vec4 vColor;
+
+        void main(void) {
+            gl_FragColor = vColor;
+        }
+    </script>
+
+    <script id="shader-vs" type="x-shader/x-vertex">
+        attribute vec3 aVertexPosition;
+
+        uniform mat4 uPMVMatrix;
+
+        varying vec4 vColor;
+
+        void main(void) {
+            gl_Position = uPMVMatrix * vec4(aVertexPosition, 1.0);
+            vColor = vec4(1.0, 0.0, 0.0, 1.0);
+        }
+    </script>
+
+
+  <script type="text/javascript">
+
+    var gl;
+
+    function initGL(canvas) {
+      try {
+        gl = canvas.getContext("experimental-webgl");
+        gl.viewportWidth = canvas.width;
+        gl.viewportHeight = canvas.height;
+      } catch (e) {
+      }
+      if (!gl) {
+        alert("Could not initialise WebGL.");
+      }
+    }
+
+    function getShader(gl, id) {
+      var shaderScript = document.getElementById(id);
+      if (!shaderScript) {
+          return null;
+      }
+
+      var shader;
+      if (shaderScript.type == "x-shader/x-fragment") {
+          shader = gl.createShader(gl.FRAGMENT_SHADER);
+      } else if (shaderScript.type == "x-shader/x-vertex") {
+          shader = gl.createShader(gl.VERTEX_SHADER);
+      } else {
+          return null;
+      }
+
+      gl.shaderSource(shader, shaderScript.innerHTML);
+      gl.compileShader(shader);
+
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+          alert(gl.getShaderInfoLog(shader));
+          return null;
+      }
+
+      return shader;
+    }
+
+    var shaderProgram;
+    function initShaders() {
+      var fragmentShader = getShader(gl, "shader-fs");
+      var vertexShader = getShader(gl, "shader-vs");
+
+      shaderProgram = gl.createProgram();
+      gl.attachShader(shaderProgram, vertexShader);
+      gl.attachShader(shaderProgram, fragmentShader);
+      gl.linkProgram(shaderProgram);
+
+      if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+        alert("Could not initialise shaders");
+        return;
+      }
+
+      gl.useProgram(shaderProgram);
+
+      shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
+      gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
+
+      shaderProgram.pmvMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMVMatrix");
+    }
+
+
+    var squareVertexPositionBuffer;
+    function initBuffers() {
+      squareVertexPositionBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
+      vertices = [
+           0.5,  0.5,  0.0,
+          -0.5,  0.5,  0.0,
+           0.5, -0.5,  0.0,
+          -0.5, -0.5,  0.0
+          ];
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+      squareVertexPositionBuffer.itemSize = 3;
+      squareVertexPositionBuffer.numItems = 4;
+    }
+
+    var modelViewMatrix = mat4.create();
+    var projectionMatrix = mat4.create();
+    var rotation = 0.0;
+    function drawScene() {
+      gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      mat4.perspective(projectionMatrix, 45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0);
+
+      for (var row = 0; row < rows; row++) {
+        for (var col = 0; col < cols; col++) {
+          console.log(golRotation[row][col]);
+          mat4.translate(modelViewMatrix, mat4.create(), [col, row, -15]);
+          var rotation = golRotation[row][col][0] + rotationFactor * (golRotation[row][col][1] - golRotation[row][col][0]);
+          var rotatedModelViewMatrix = mat4.create();
+          mat4.rotate(rotatedModelViewMatrix, modelViewMatrix, rotation, [0, 1, 0]);
+
+          gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
+          gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, squareVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+          var pmvMatrix = mat4.create();
+          mat4.multiply(pmvMatrix, projectionMatrix, rotatedModelViewMatrix);
+          gl.uniformMatrix4fv(shaderProgram.pmvMatrixUniform, false, pmvMatrix);
+          
+          gl.drawArrays(gl.TRIANGLE_STRIP, 0, squareVertexPositionBuffer.numItems);
+        }
+      }
+    }
+
+    var lastUpdateTime = -9999999;
+    var ROTATION_TIME = 500.0;
+    var rotationFactor = 0;
+    var readyForSwap = true;
+    function update() {
+      var timeNow = new Date().getTime();
+      var elapsed = timeNow - lastUpdateTime;
+      if (elapsed >= ROTATION_TIME) {
+        if (readyForSwap) {
+          var tmp = golArray;
+          golArray = golArraySwap;
+          golArraySwap = tmp;
+
+          for (var row = 0; row < rows; row++) {
+            for (var col = 0; col < cols; col++) {
+              golRotation[row][col][0] = golRotation[row][col][1];
+              golRotation[row][col][1] = golArray[row][col] ? Math.PI : Math.PI / 2.0;
+            }
+          }
+
+          readyForSwap = false;
+          setTimeout(function() {
+            stepGameOfLife(golArray, golArraySwap, rows, cols);
+            readyForSwap = true;
+          }, 0);
+          
+
+          lastUpdateTime = timeNow;
+          rotationFactor = 0.0;
+        } else {
+          console.log("Missed a swap!");
+          rotationFactor = 1.0;
+        }
+      } else {
+        rotationFactor = elapsed / ROTATION_TIME;
+      }
+    }
+
+    function tick() {
+      update();
+      drawScene();
+      requestAnimFrame(tick);
+    }
+
+    var golArray;
+    var golArraySwap;
+    var golRotation;
+    var rows = 20;
+    var cols = 20;
+    function start() {
+
+      // Set up Game of Life
+      golArraySwap = createRandomGameOfLife(rows, cols, 0.4);
+      golArray = createEmptyArray(rows, cols, false);
+      golRotation =  createEmptyArray(rows, cols, []);
+      for (var row = 0; row < rows; row++) {
+        for (var col = 0; col < cols; col++) {
+          golRotation[row][col] = new Array(); 
+          golRotation[row][col][0] = Math.PI / 2.0;
+          golRotation[row][col][1] = Math.PI / 2.0;
+        }
+      }
+
+
+      var canvas = document.getElementById("webgl-canvas");
+      initGL(canvas);
+      initShaders()
+      initBuffers();
+
+      gl.clearColor(0.0, 0.0, 0.0, 1.0);
+
+      tick();
+    }
+
+  </script>
+
+</head>
+
+<body onload="start();">
+
+  <h1>WebGL Game of life</h1>
+
+  <canvas id="webgl-canvas" style="border: none;" width="500" height="500"></canvas>
+
+</body>
+
+</html>
