@@ -26,12 +26,13 @@
         attribute vec3 aVertexPosition;
 
         uniform mat4 uPMVMatrix;
+        uniform float uRotationFactor;
 
         varying vec4 vColor;
 
         void main(void) {
             gl_Position = uPMVMatrix * vec4(aVertexPosition, 1.0);
-            vColor = vec4(1.0, 0.0, 0.0, 1.0);
+            vColor = vec4(uRotationFactor * vec3(1.0, 0.0, 0.0), 1.0);
         }
     </script>
 
@@ -99,6 +100,7 @@
       gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
 
       shaderProgram.pmvMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMVMatrix");
+      shaderProgram.rotationFactorUniform = gl.getUniformLocation(shaderProgram, "uRotationFactor");
     }
 
 
@@ -119,7 +121,6 @@
 
     var modelViewMatrix = mat4.create();
     var projectionMatrix = mat4.create();
-    var rotation = 0.0;
     function drawScene() {
       gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -129,7 +130,7 @@
       for (var row = 0; row < rows; row++) {
         for (var col = 0; col < cols; col++) {
           console.log(golRotation[row][col]);
-          mat4.translate(modelViewMatrix, mat4.create(), [col, row, -15]);
+          mat4.translate(modelViewMatrix, mat4.create(), [col - cols / 2, row - rows / 2, -15]);
           var rotation = golRotation[row][col][0] + rotationFactor * (golRotation[row][col][1] - golRotation[row][col][0]);
           var rotatedModelViewMatrix = mat4.create();
           mat4.rotate(rotatedModelViewMatrix, modelViewMatrix, rotation, [0, 1, 0]);
@@ -140,6 +141,7 @@
           var pmvMatrix = mat4.create();
           mat4.multiply(pmvMatrix, projectionMatrix, rotatedModelViewMatrix);
           gl.uniformMatrix4fv(shaderProgram.pmvMatrixUniform, false, pmvMatrix);
+          gl.uniform1f(shaderProgram.rotationFactorUniform, 0.2 + 0.8 * (2.0 * rotation - Math.PI) / Math.PI);
           
           gl.drawArrays(gl.TRIANGLE_STRIP, 0, squareVertexPositionBuffer.numItems);
         }
@@ -147,8 +149,8 @@
     }
 
     var lastUpdateTime = -9999999;
-    var ROTATION_TIME = 500.0;
-    var rotationFactor = 0;
+    var ROTATION_TIME = 700.0;
+    var rotationFactor = 0.0;
     var readyForSwap = true;
     function update() {
       var timeNow = new Date().getTime();
@@ -171,7 +173,7 @@
             stepGameOfLife(golArray, golArraySwap, rows, cols);
             readyForSwap = true;
           }, 0);
-          
+        
 
           lastUpdateTime = timeNow;
           rotationFactor = 0.0;
@@ -216,6 +218,7 @@
       initBuffers();
 
       gl.clearColor(0.0, 0.0, 0.0, 1.0);
+      gl.enable(gl.DEPTH_TEST);
 
       tick();
     }
